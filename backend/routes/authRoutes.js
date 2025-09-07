@@ -1,6 +1,7 @@
 import express from "express";
 import passport from "../config/passport.js"; // import configured passport
-import { loginCallback, refreshToken, logout } from "../controllers/authController.js";
+import { isAuthenticated } from "../middleware/isAuthenticated.js";
+import { loginCallback,getMe, logout } from "../controllers/authController.js";
 
 const router = express.Router();
 
@@ -9,11 +10,8 @@ router.get("/google", passport.authenticate("google", { scope: ["profile", "emai
 
 // Login callback
 router.get("/google/callback",loginCallback);
-
-// Refresh access token
-router.get("/refresh-token", refreshToken);
-
+router.get("/me",isAuthenticated,getMe);
 // Logout
-router.get("/logout", logout);
+router.post("/logout", logout);
 
 export default router;

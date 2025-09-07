@@ -46,7 +46,7 @@ export default function Callback({ strategy }) {
           window.opener.postMessage(response.data, window.location.origin);
         }
 
-        // window.close();
+        window.close();
       } catch (err) {
         console.error("Error during token exchange:", err);
         const errorMessage = err?.response?.data?.message || "Unknown error during login.";
@@ -54,7 +54,7 @@ export default function Callback({ strategy }) {
         setMessage("An error occurred. Closing window...");
         setLoading(false);
         toast.error(`Login failed: ${errorMessage}`);
-        // window.close();
+        window.close();
       }
     };
 
