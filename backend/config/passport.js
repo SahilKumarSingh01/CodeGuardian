@@ -28,6 +28,7 @@ passport.use(
 
         done(null, user);
       } catch (err) {
+        console.error("Google OAuth authentication error:", err);
         done(err, null);
       }
     }

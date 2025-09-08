@@ -2,6 +2,8 @@ import express from "express";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import authRoutes from "./routes/authRoutes.js";
+import softwareRoutes from "./routes/softwareRoutes.js";
+
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -25,6 +27,7 @@ const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, "\n");
 
 // Routes
 app.use("/auth", authRoutes);
+app.use("/software", softwareRoutes);
 
 // MongoDB connection
 mongoose.connect("mongodb://localhost:27017/codeguardian").then(() => console.log("MongoDB connected"))

@@ -43,7 +43,7 @@ export default function Header() {
 
       <button
         onClick={toggleTheme}
-        className="px-3 py-2 rounded-lg text-sm dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition w-full text-center" // <-- added text-center
+        className="px-3 py-2 rounded-lg dark:text-white hover:bg-gray-100 dark:hover:bg-slate-700 transition w-full text-center" // <-- added text-center
       >
         {theme === "light" ? "Dark" : "Light"}
       </button>
@@ -70,7 +70,11 @@ export default function Header() {
 
 
   return (
-    <header className="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <header
+        className={`${
+          isMobile ? "px-[5%]" : "px-[10%]"
+        } py-5 flex items-center justify-between`}
+      >
       {/* Logo */}
       <Link to="/" className="flex items-center gap-2">
         <div className="h-9 w-9 rounded-2xl bg-blue-600/10 grid place-items-center font-bold text-blue-600 dark:bg-blue-500/20 dark:text-blue-200">

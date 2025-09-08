@@ -2,9 +2,6 @@ import Header from "../components/Header.jsx";
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100">
-      {/* Header */}
-      <Header />
 
       <section className="max-w-5xl mx-auto px-6 py-16 text-center">
         {/* Title */}
@@ -42,6 +39,5 @@ export default function About() {
           </p>
         </div>
       </section>
-    </div>
   );
 }
