@@ -1,15 +1,8 @@
 // middleware/uploadMiddleware.js
 import multer from "multer";
-import { v2 as cloudinary } from "cloudinary";
+import cloudinary from "../config/cloudinary.js"
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import path from "path";
-
-// Cloudinary configuration
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 // Storage engine
 const storage = new CloudinaryStorage({

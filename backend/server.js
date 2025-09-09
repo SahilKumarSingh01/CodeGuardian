@@ -7,6 +7,7 @@ import softwareRoutes from "./routes/softwareRoutes.js";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
+import { tokenHandler } from "./middlewares/tokenHandler.js";
 
 dotenv.config();
 const app = express();
@@ -20,6 +21,7 @@ app.use(cors({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(tokenHandler);
 
 // Load keys from env (handle escaped newlines for Vercel)
 const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, "\n");

@@ -2,9 +2,11 @@
 import React, { useState } from "react";
 import { Upload, FileArchive, Tag, FileText } from "lucide-react";
 import { toast } from "react-toastify";
-
+import { useNavigate } from "react-router-dom";
 
 export default function NewSoftwareUpload() {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -21,7 +23,7 @@ export default function NewSoftwareUpload() {
     if (files) {
       const file = files[0];
       if (file && file.type !== "application/zip" && !file.name.endsWith(".zip")) {
-        alert("Only .zip files are allowed!");
+        toast.error("Only .zip files are allowed!");
         return;
       }
       setFormData((prev) => ({ ...prev, file }));
@@ -30,59 +32,78 @@ export default function NewSoftwareUpload() {
     }
   };
 
+  const validateForm = () => {
+    const { title, description, version, price, file } = formData;
+
+    if (!title || !description || !version || !price || !file) {
+      toast.error("All fields are required!");
+      return false;
+    }
+
+    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+      toast.error("Version must follow x.y.z format (e.g. 1.0.0)");
+      return false;
+    }
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 1 || numPrice > 10000) {
+      toast.error("Price must be between 1 and 10000");
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.file) {
-    toast.error("Please select a .zip file to upload!");
-    return;
-  }
+    if (!validateForm()) return;
 
-  const data = new FormData();
-  Object.entries(formData).forEach(([key, value]) => {
-    data.append(key, value);
-  });
+    const data = new FormData();
+    Object.entries(formData).forEach(([key, value]) => {
+      data.append(key, value);
+    });
 
-  const xhr = new XMLHttpRequest();
-  xhr.open("POST", `${import.meta.env.VITE_SERVER_URL}/software/seller/upload`, true);
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${import.meta.env.VITE_SERVER_URL}/software/seller/upload`, true);
 
-  //  include cookies/session automatically
-  xhr.withCredentials = true;
+    xhr.withCredentials = true;
 
-  xhr.upload.onprogress = (event) => {
-    if (event.lengthComputable) {
-      const percent = Math.round((event.loaded / event.total) * 100);
-      setProgress(percent);
-    }
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percent = Math.round((event.loaded / event.total) * 100);
+        setProgress(percent);
+      }
+    };
+
+    xhr.onload = () => {
+      setUploading(false);
+
+      try {
+        const res = JSON.parse(xhr.responseText);
+
+        if (xhr.status === 200 || xhr.status === 201) {
+          toast.success(res.message || "Software uploaded successfully!");
+
+          // ✅ navigate to /my-uploads on success
+          navigate("/my-uploads");
+        } else {
+          toast.error(res.message || `Upload failed. Status: ${xhr.status}`);
+        }
+      } catch (err) {
+        toast.error(`Upload failed. Status: ${xhr.status}`);
+      }
+    };
+
+    xhr.onerror = () => {
+      setUploading(false);
+      toast.error("An error occurred during upload.");
+    };
+
+    setUploading(true);
+    setProgress(0);
+    xhr.send(data);
   };
-
-  xhr.onload = () => {
-    setUploading(false);
-    if (xhr.status === 200 || xhr.status === 201) {
-      toast.success("Software uploaded successfully!");
-      setFormData({
-        title: "",
-        description: "",
-        version: "",
-        price: "",
-        file: null,
-      });
-      setProgress(0);
-    } else {
-      toast.error(`Upload failed. Status: ${xhr.status}`);
-    }
-  };
-
-  xhr.onerror = () => {
-    setUploading(false);
-    toast.error("An error occurred during upload.");
-  };
-
-  setUploading(true);
-  setProgress(0);
-  xhr.send(data);
-};
-
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">
@@ -151,18 +172,17 @@ export default function NewSoftwareUpload() {
           <div>
             <label className="block text-sm font-medium mb-1">Price (INR)</label>
             <div className="flex items-center border rounded-lg px-3 py-2">
-                <span className="text-gray-500 mr-1">₹</span>
-                <input
+              <span className="text-gray-500 mr-1">₹</span>
+              <input
                 type="number"
                 name="price"
                 placeholder="0.00"
                 value={formData.price}
                 onChange={handleChange}
                 className="w-full outline-none"
-                />
+              />
             </div>
-            </div>
-
+          </div>
 
           {/* File Upload */}
           <div>

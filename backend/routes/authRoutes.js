@@ -1,6 +1,6 @@
 import express from "express";
 import passport from "../config/passport.js"; // import configured passport
-import { isAuthenticated } from "../middleware/isAuthenticated.js";
+import { isAuthenticated } from "../middlewares/isAuthenticated.js";
 import { loginCallback,getMe, logout } from "../controllers/authController.js";
 
 const router = express.Router();

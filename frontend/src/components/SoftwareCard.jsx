@@ -49,7 +49,7 @@ export default function SoftwareCard({ software, actions = [] }) {
       </div>
 
       {/* Menu (3 dots) */}
-      <div
+      {actions.length>0&&(<div
         className="absolute top-3 right-3"
         onClick={(e) => e.stopPropagation()} // prevent triggering view
       >
@@ -67,9 +67,11 @@ export default function SoftwareCard({ software, actions = [] }) {
                        border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20"
           >
             {actions.map(({ name, func }) => (
+
               <button
                 key={name}
                 onClick={() => {
+                  // console.log(name,func);
                   func(software);
                   setMenuOpen(false);
                 }}
@@ -83,7 +85,7 @@ export default function SoftwareCard({ software, actions = [] }) {
             ))}
           </div>
         )}
-      </div>
+      </div>)}
     </div>
   );
 }

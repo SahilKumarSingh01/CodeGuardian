@@ -43,3 +43,31 @@ export const searchSoftware = async (req, res) => {
     res.status(500).json({ message: "Failed to search software" });
   }
 };
+
+
+
+// 📄 Get single software by ID
+export const getSoftware = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const softwareDoc = await Software.findById(id);
+
+    if (!softwareDoc) {
+      return res.status(404).json({ message: "Software not found" });
+    }
+
+    // convert to plain object to safely add custom fields
+    const software = softwareDoc.toObject();
+
+    software.isCreator = false;
+    if (req.user?.id && req.user.id === software.uploadedBy.toString()) {
+      software.isCreator = true;
+    }
+    // console.log(req.user);
+    res.json(software);
+  } catch (err) {
+    console.error("Get software error:", err);
+    res.status(500).json({ message: "Failed to fetch software" });
+  }
+};

@@ -12,6 +12,8 @@ import About from "./pages/About.jsx";
 import Docs from "./pages/Docs.jsx";
 import SoftwareUpload from './pages/SoftwareUpload.jsx'
 import MyUploads from './pages/MyUploads.jsx';
+import SoftwareView from "./pages/SoftwareView.jsx";
+
 // import Login from "./pages/Login.jsx";
 // import Dashboard from "./pages/Dashboard.jsx";
 
@@ -58,6 +60,8 @@ export default function App() {
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/my-uploads" element={<MyUploads/>}/>
                 <Route path="/explore" element={<Explore/>}/>
+                <Route path="/view/:id" element={<SoftwareView />} />
+
               </Routes>
             </main>
 
