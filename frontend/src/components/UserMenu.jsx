@@ -64,6 +64,14 @@ export default function UserMenu() {
             </li>
             <li>
               <button
+                onClick={() => navigate("/wishlist")}
+                className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200"
+              >
+                My Wishlist
+              </button>
+            </li>
+            <li>
+              <button
                 onClick={() => navigate("/upload-new")}
                 className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200"
               >

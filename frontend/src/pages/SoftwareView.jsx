@@ -12,6 +12,7 @@ export default function SoftwareView() {
   const [software, setSoftware] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openUploader, setOpenUploader] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     const fetchSoftware = async () => {
@@ -29,8 +30,21 @@ export default function SoftwareView() {
   }, [id]);
 
   const handleUploaderSuccess = () => {
-    // Optionally refresh software info or just show toast
     toast.success("ZIP updated successfully!");
+  };
+
+  const handleAddToWishlist = async () => {
+    if (!software) return;
+    setAdding(true);
+    try {
+      await axios.post(`/software/buyer/wishlist/${software._id}`);
+      toast.success("Added to wishlist! ");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add to wishlist.");
+    } finally {
+      setAdding(false);
+    }
   };
 
   if (loading) {
@@ -51,7 +65,6 @@ export default function SoftwareView() {
     );
   }
 
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <SoftwareHeader software={software} setSoftware={setSoftware} />
@@ -63,8 +76,12 @@ export default function SoftwareView() {
         <button className="flex-1 bg-blue-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-blue-700 transition shadow-md">
           Purchase
         </button>
-        <button className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-5 py-3 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-md">
-          Add to Wishlist
+        <button
+          onClick={handleAddToWishlist}
+          disabled={adding}
+          className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-5 py-3 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-md disabled:opacity-50"
+        >
+          {adding ? "Adding..." : "Add to Wishlist"}
         </button>
 
         {/* Only show if user is creator */}

@@ -36,15 +36,26 @@ export default function SoftwareCard({ software, actions = [] }) {
         <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
           {software.description}
         </p>
-
-        {/* Version */}
+        {software.uploadedBy && typeof software.uploadedBy === "object" && (
+          <div className="flex items-center gap-2 mt-2">
+            <img
+              src={software.uploadedBy.photoUrl}
+              alt={software.uploadedBy.displayName}
+              className="w-6 h-6 rounded-full object-cover"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+              {software.uploadedBy.displayName}
+            </span>
+          </div>
+        )}
+                {/* Version */}
         <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
           Version: {software.version}
         </p>
 
         {/* Price */}
         <p className="text-green-600 dark:text-green-400 font-semibold mt-2">
-          ${software.price}
+          ₹{software.price}
         </p>
       </div>
 
