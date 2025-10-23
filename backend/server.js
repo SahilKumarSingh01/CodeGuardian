@@ -3,11 +3,13 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import authRoutes from "./routes/authRoutes.js";
 import softwareRoutes from "./routes/softwareRoutes.js";
-
+import ticketRoutes from "./routes/ticketRoutes.js"
+import userRoutes from "./routes/userRoutes.js"
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import { tokenHandler } from "./middlewares/tokenHandler.js";
+
 
 dotenv.config();
 const app = express();
@@ -30,6 +32,8 @@ const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, "\n");
 // Routes
 app.use("/auth", authRoutes);
 app.use("/software", softwareRoutes);
+app.use("/ticket", ticketRoutes);
+app.use("/user", userRoutes);
 
 // MongoDB connection
 mongoose.connect("mongodb://localhost:27017/codeguardian").then(() => console.log("MongoDB connected"))

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; // add navigate
 import axios from "../api/axios";
 import SoftwareHeader from "../components/SoftwareHeader.jsx";
 import SoftwareDetails from "../components/SoftwareDetails.jsx";
@@ -9,10 +9,12 @@ import { toast } from "react-toastify";
 
 export default function SoftwareView() {
   const { id } = useParams();
+  const navigate = useNavigate(); // for redirecting after purchase
   const [software, setSoftware] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openUploader, setOpenUploader] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [purchasing, setPurchasing] = useState(false); // track purchase state
 
   useEffect(() => {
     const fetchSoftware = async () => {
@@ -47,6 +49,24 @@ export default function SoftwareView() {
     }
   };
 
+  const handlePurchase = async () => {
+    if (!software) return;
+    setPurchasing(true);
+    try {
+      const { data } = await axios.post("/ticket", {
+        softwareId: software._id,
+      });
+      toast.success("Purchase started! Ticket created.");
+      // maybe redirect to ticket/chat view
+      navigate(`/ticket/${data.ticket._id}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to start purchase.");
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
@@ -73,9 +93,14 @@ export default function SoftwareView() {
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <button className="flex-1 bg-blue-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-blue-700 transition shadow-md">
-          Purchase
+        <button
+          onClick={handlePurchase}
+          disabled={purchasing}
+          className="flex-1 bg-blue-600 text-white px-5 py-3 rounded-lg font-medium hover:bg-blue-700 transition shadow-md disabled:opacity-50"
+        >
+          {purchasing ? "Purchasing..." : "Purchase"}
         </button>
+
         <button
           onClick={handleAddToWishlist}
           disabled={adding}
