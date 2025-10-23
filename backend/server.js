@@ -36,7 +36,7 @@ app.use("/ticket", ticketRoutes);
 app.use("/user", userRoutes);
 
 // MongoDB connection
-mongoose.connect("mongodb://localhost:27017/codeguardian").then(() => console.log("MongoDB connected"))
+mongoose.connect(process.env.MONGO_URI).then(() => console.log("MongoDB connected",))
   .catch(err => console.log(err));
 
 
