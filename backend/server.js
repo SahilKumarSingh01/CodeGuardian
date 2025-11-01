@@ -38,7 +38,7 @@ app.use("/user", userRoutes);
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI).then(() => {
   console.log("MongoDB connected");
-  attachDatabasePool(mongoose.connection.getClient());
+  // attachDatabasePool(mongoose.connection.getClient());
 })
   .catch(err => console.log(err));
 
