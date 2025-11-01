@@ -9,7 +9,7 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import { tokenHandler } from "./middlewares/tokenHandler.js";
-
+import { attachDatabasePool } from "@vercel/functions";
 
 dotenv.config();
 const app = express();
@@ -36,7 +36,10 @@ app.use("/ticket", ticketRoutes);
 app.use("/user", userRoutes);
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI).then(() => console.log("MongoDB connected",))
+mongoose.connect(process.env.MONGODB_URI).then(() => {
+  console.log("MongoDB connected");
+  attachDatabasePool(mongoose.connection.getClient());
+})
   .catch(err => console.log(err));
 
 
