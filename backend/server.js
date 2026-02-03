@@ -36,7 +36,7 @@ app.use("/user", userRoutes);
 
 let isConnected = false;
 
-export async function connect() {
+async function connect() {
     // If already connected, skip
     if (isConnected || mongoose.connection.readyState === 1) {
         return;
