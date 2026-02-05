@@ -77,7 +77,7 @@ export const uploadSoftware = async (req, res) => {
       software: attachIsCreator(software, req.user.id),
     });
   } catch (err) {
-    console.error(err);
+    console.errorz(err);
     await cleanup(req.file);
     res.status(500).json({ message: err.message });
   }

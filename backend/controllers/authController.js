@@ -1,62 +1,30 @@
-import jwt from "jsonwebtoken";
 import passport from "passport";
-import RefreshToken from "../models/RefreshToken.js"; // DB model
 import User from "../models/User.js";
-const ACCESS_TOKEN_EXPIRES = "15m"; // short-lived
-const REFRESH_TOKEN_EXPIRES = "7d"; // long-lived
+import {setAccessToken,setRefreshToken,clearAccessToken,clearRefreshToken} from "../utils/authTokens.js";
 
 // Google Authentication Callback Handler
 export const loginCallback = (req, res, next) => {
   passport.authenticate("google", { session: false }, async (err, user) => {
-    if (err) return next(err);
+    if (err) {
+      return res.status(500).json({ message: "Authentication failed" });
+    }
+
     if (!user) {
-      return res.status(400).json({ success: false, message: "Authentication failed" });
+      return res.status(401).json({ message: "Google authentication failed" });
+    }
+    const userAgent = req.headers["user-agent"] || "unknown";
+
+    const accessOk = setAccessToken(res, user._id);
+    const refreshOk = await setRefreshToken(res, user._id,userAgent);
+
+    if (!accessOk || !refreshOk) {
+      return res.status(500).json({ message: "Token issuance failed" });
     }
 
-    try {
-      // Generate tokens
-      const accessToken = jwt.sign(
-        { id: user.id },
-        process.env.JWT_ACCESS_SECRET,
-        { expiresIn: ACCESS_TOKEN_EXPIRES }
-      );
-
-      const refreshToken = jwt.sign(
-        { id: user.id },
-        process.env.JWT_REFRESH_SECRET,
-        { expiresIn: REFRESH_TOKEN_EXPIRES }
-      );
-
-      // Save refresh token + user-agent in DB
-      const userAgent = req.headers["user-agent"] || "unknown";
-      await RefreshToken.create({
-        userId: user.id,
-        token: refreshToken,
-        userAgent,
-      });
-
-      // Set refresh token as HttpOnly cookie
-      res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
-
-      res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-        maxAge:  15 * 60 * 1000, // 15m
-      });
-      // Send response
-      return res.status(200).json({
-        success: true,
-        user,
-      });
-    } catch (dbErr) {
-      return next(dbErr);
-    }
+    return res.status(200).json({
+      success: true,
+      user: user,
+    });
   })(req, res, next);
 };
 
@@ -81,14 +49,15 @@ export const getMe = async (req, res) => {
 };
 // Logout
 export const logout = async (req, res) => {
-  const token = req.cookies.refreshToken;
+  const refreshToken = req.cookies?.refreshToken;
 
-  if (token) {
-    // Delete from DB so it can’t be reused
-    await RefreshToken.deleteOne({ token });
+  const accessCleared = clearAccessToken(res);
+  const refreshCleared = await clearRefreshToken(res, refreshToken);
+
+  if (!accessCleared || !refreshCleared) {
+    return res.status(500).json({ message: "Logout failed" });
   }
 
-  res.clearCookie("refreshToken");
-  res.clearCookie("accessToken");
-  res.status(200).json({ message: "Logged out successfully" });
+  return res.json({ message: "Logout successful" });
 };
+

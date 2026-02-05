@@ -1,34 +1,29 @@
 // middlewares/tokenHandler.js
 import jwt from "jsonwebtoken";
 import RefreshToken from "../models/RefreshToken.js";
-
-const ACCESS_EXPIRES = "15m"; // move to .env if you like
+import {setAccessToken,clearRefreshToken,} from "../utils/authTokens.js";
 
 export const tokenHandler = async (req, res, next) => {
   const accessToken = req.cookies?.accessToken;
   const refreshToken = req.cookies?.refreshToken;
 
-  // default guest
   req.user = null;
 
-  // 1) If access token exists → try first (NO DB call)
+  // 1️ Try access token first (no DB hit)
   if (accessToken) {
     try {
       const payload = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET);
       req.user = { id: payload.id };
-      // console.log(payload);
       return next();
     } catch (err) {
-      // console.log(err);
       if (err.name !== "TokenExpiredError") {
-        // invalid/tampered access token → ignore
         return next();
       }
-      // expired → try refresh below
+      // expired → try refresh
     }
   }
 
-  // 2) Missing/expired access token → try refresh
+  // 2️ No refresh token → guest
   if (!refreshToken) {
     return next();
   }
@@ -37,54 +32,28 @@ export const tokenHandler = async (req, res, next) => {
     const stored = await RefreshToken.findOne({ token: refreshToken });
 
     if (!stored) {
-      // ❌ Refresh token not in DB → clear from cookie
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
+      await clearRefreshToken(res, refreshToken);
       return next();
     }
 
-    // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    // safety: ensure same user
-    if (String(stored.userId) !== String(decoded.id)) {
-      res.clearCookie("refreshToken", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "strict",
-      });
-      return next();
-    }
-
-    // ✅ Rotate access token
-    const newAccessToken = jwt.sign(
-      { id: decoded.id },
-      process.env.ACCESS_TOKEN_SECRET,
-      { expiresIn: ACCESS_EXPIRES }
+    const decoded = jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET
     );
 
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 15 * 60 * 1000,
-    });
+    if (String(stored.userId) !== String(decoded.id)) {
+      await clearRefreshToken(res, refreshToken);
+      return next();
+    }
+
+    //  Rotate access token only
+    const accessOk = setAccessToken(res, decoded.id);
+    if (!accessOk) return next();
 
     req.user = { id: decoded.id };
     return next();
   } catch (err) {
-    console.error("tokenHandler error (rotation):", err);
-
-    // Clear invalid refresh token
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-    });
-
+    await clearRefreshToken(res, refreshToken);
     return next();
   }
 };
