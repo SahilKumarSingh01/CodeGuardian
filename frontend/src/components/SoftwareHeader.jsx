@@ -5,36 +5,37 @@ import axios from "../api/axios";
 import { useState } from "react";
 import { toast } from "react-toastify";
 
-
 export default function SoftwareHeader({ software, setSoftware }) {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
 
- const handleUpdate = async (field, value) => {
-  try {
-    setSaving(true);
+  const handleUpdate = async (field, value) => {
+    try {
+      setSaving(true);
 
-    const payload = { [field]: value };
+      // Convert numeric fields
+      let payload = { [field]: value };
+      if (field === "price" || field === "allowedSessions") {
+        payload[field] = Number(value);
+      }
 
-    const { data } = await axios.put(
-      `/software/seller/${software._id}/basics`,
-      payload,
-      { withCredentials: true }
-    );
+      const { data } = await axios.put(
+        `/software/seller/${software._id}/basics`,
+        payload,
+        { withCredentials: true }
+      );
 
-    setSoftware(data.software);
-    toast.success("Updated successfully ✨");
-  } catch (err) {
-    // Safely read backend error message
-    const message =
-      err.response?.data?.message || "Failed to update. Please try again.";
-    toast.error(message);
-    console.error("Update error:", err);
-  } finally {
-    setSaving(false);
-  }
-};
-
+      setSoftware(data.software);
+      toast.success("Updated successfully");
+    } catch (err) {
+      const message =
+        err.response?.data?.message || "Failed to update. Please try again.";
+      toast.error(message);
+      console.error("Update error:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -82,6 +83,7 @@ export default function SoftwareHeader({ software, setSoftware }) {
               software.version
             )}
           </span>
+
           <span className="font-medium flex items-center gap-2 bg-white/20 px-4 py-2 rounded-lg">
             ₹
             {software.isCreator ? (
@@ -92,6 +94,19 @@ export default function SoftwareHeader({ software, setSoftware }) {
               />
             ) : (
               software.price
+            )}
+          </span>
+
+          <span className="font-medium bg-white/20 px-4 py-2 rounded-lg">
+            Allowed Sessions:{" "}
+            {software.isCreator ? (
+              <EditBox
+                value={software.allowedSessions}
+                type="number"
+                onSave={(val) => handleUpdate("allowedSessions", val)}
+              />
+            ) : (
+              software.allowedSessions
             )}
           </span>
         </div>

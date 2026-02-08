@@ -12,6 +12,7 @@ const softwareSchema = new mongoose.Schema(
     publicId: { type: String, required: true }, // Cloudinary public_id
     size: { type: Number, required: true },     // File size in byte
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    allowedSessions: { type: Number, default: 1 }, // max devices per ref.dat
   },
   { timestamps: true }
 );

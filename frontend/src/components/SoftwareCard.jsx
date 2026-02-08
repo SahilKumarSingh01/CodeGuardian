@@ -2,10 +2,11 @@ import { useState, useRef, useEffect } from "react";
 import { MoreVertical, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-export default function SoftwareCard({ software, actions = [] }) {
+export default function SoftwareCard({ software, actions = [] , onClickFunc }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  
   // Close menu on outside click
   useEffect(() => {
     function handleClickOutside(e) {
@@ -21,7 +22,7 @@ export default function SoftwareCard({ software, actions = [] }) {
     <div
       className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-200 dark:border-gray-700 
                  overflow-hidden hover:shadow-lg transition cursor-pointer relative"
-      onClick={() => navigate(`/view/${software._id}`)} // view on card click
+      onClick={()=>{onClickFunc?onClickFunc():navigate(`/view/${software._id}`)}} // view on card click
     >
       {/* Placeholder Icon */}
       <div className="h-36 flex items-center justify-center bg-gray-100 dark:bg-gray-700">

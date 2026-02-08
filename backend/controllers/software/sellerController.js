@@ -35,14 +35,13 @@ const cleanup = async (file) => {
     console.error("Cleanup failed:", destroyErr);
   }
 };
-
 export const uploadSoftware = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded or invalid type" });
     }
 
-    const { title, description, version, price } = req.body;
+    const { title, description, version, price, allowedSessions } = req.body;
 
     if (!title || !description) {
       await cleanup(req.file);
@@ -60,6 +59,16 @@ export const uploadSoftware = async (req, res) => {
       return res.status(400).json({ message: "Price must be between 0 and 10000" });
     }
 
+    // Validate allowedSessions
+    let numSessions = 1; // default if not provided
+    if (allowedSessions !== undefined) {
+      numSessions = Number(allowedSessions);
+      if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) { // max 10 as example
+        await cleanup(req.file);
+        return res.status(400).json({ message: "allowedSessions must be between 1 and 10" });
+      }
+    }
+
     const software = await Software.create({
       title,
       description,
@@ -68,16 +77,15 @@ export const uploadSoftware = async (req, res) => {
       publicId: req.file.filename,
       size: req.file.size,
       uploadedBy: req.user.id,
+      allowedSessions: numSessions,
     });
-
-    // const populated = await software.populate("uploadedBy", "displayName photoUrl");
 
     res.status(201).json({
       message: "Software uploaded successfully",
       software: attachIsCreator(software, req.user.id),
     });
   } catch (err) {
-    console.errorz(err);
+    console.error(err);
     await cleanup(req.file);
     res.status(500).json({ message: err.message });
   }
@@ -86,17 +94,18 @@ export const uploadSoftware = async (req, res) => {
 export const updateBasics = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, version, price } = req.body;
+    const { title, description, version, price, allowedSessions } = req.body;
 
     const updateData = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
 
     if (price !== undefined) {
-      if (isNaN(price) || Number(price) > 10000 || Number(price) < 1) {
-        return res.status(400).json({ message: "Invalid price. Must be 1–10000" });
+      const numPrice = Number(price);
+      if (isNaN(numPrice) || numPrice < 0 || numPrice > 10000) {
+        return res.status(400).json({ message: "Invalid price. Must be 0–10000" });
       }
-      updateData.price = Number(price);
+      updateData.price = numPrice;
     }
 
     if (version !== undefined) {
@@ -104,6 +113,14 @@ export const updateBasics = async (req, res) => {
         return res.status(400).json({ message: "Invalid version format. Expected x.y.z" });
       }
       updateData.version = version;
+    }
+
+    if (allowedSessions !== undefined) {
+      const numSessions = Number(allowedSessions);
+      if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) {
+        return res.status(400).json({ message: "allowedSessions must be between 1 and 10" });
+      }
+      updateData.allowedSessions = numSessions;
     }
 
     const software = await Software.findOneAndUpdate(
@@ -125,6 +142,7 @@ export const updateBasics = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
 
 export const updateDetails = async (req, res) => {
   try {

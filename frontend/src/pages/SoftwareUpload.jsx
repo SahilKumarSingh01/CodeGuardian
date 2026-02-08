@@ -12,6 +12,7 @@ export default function NewSoftwareUpload() {
     description: "",
     version: "",
     price: "",
+    allowedSessions: 1, // default
     file: null,
   });
   const [uploading, setUploading] = useState(false);
@@ -33,7 +34,7 @@ export default function NewSoftwareUpload() {
   };
 
   const validateForm = () => {
-    const { title, description, version, price, file } = formData;
+    const { title, description, version, price, allowedSessions, file } = formData;
 
     if (!title || !description || !version || !price || !file) {
       toast.error("All fields are required!");
@@ -48,6 +49,12 @@ export default function NewSoftwareUpload() {
     const numPrice = Number(price);
     if (isNaN(numPrice) || numPrice < 1 || numPrice > 10000) {
       toast.error("Price must be between 1 and 10000");
+      return false;
+    }
+
+    const numSessions = Number(allowedSessions);
+    if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) {
+      toast.error("Allowed Sessions must be between 1 and 10");
       return false;
     }
 
@@ -66,7 +73,6 @@ export default function NewSoftwareUpload() {
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${import.meta.env.VITE_SERVER_URL}/software/seller/upload`, true);
-
     xhr.withCredentials = true;
 
     xhr.upload.onprogress = (event) => {
@@ -84,8 +90,6 @@ export default function NewSoftwareUpload() {
 
         if (xhr.status === 200 || xhr.status === 201) {
           toast.success(res.message || "Software uploaded successfully!");
-
-          // ✅ navigate to /my-uploads on success
           navigate("/my-uploads");
         } else {
           toast.error(res.message || `Upload failed. Status: ${xhr.status}`);
@@ -182,6 +186,22 @@ export default function NewSoftwareUpload() {
                 className="w-full outline-none"
               />
             </div>
+          </div>
+
+          {/* Allowed Sessions */}
+          <div>
+            <label className="block text-sm font-medium mb-1">Allowed Sessions</label>
+            <input
+              type="number"
+              name="allowedSessions"
+              min={1}
+              max={10}
+              value={formData.allowedSessions}
+              onChange={handleChange}
+              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 
+                         text-gray-900 dark:text-white dark:bg-gray-800 
+                         focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
           </div>
 
           {/* File Upload */}

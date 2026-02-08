@@ -9,7 +9,8 @@ import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import cors from "cors";
 import { tokenHandler } from "./middlewares/tokenHandler.js";
-
+import RefData from "./models/RefData.js";
+import Software from "./models/Software.js";
 dotenv.config();
 const app = express();
 const PORT = 3000;
@@ -23,10 +24,6 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use(tokenHandler);
-
-// Load keys from env (handle escaped newlines for Vercel)
-const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, "\n");
-const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, "\n");
 
 // Routes
 app.use("/auth", authRoutes);
@@ -73,29 +70,64 @@ connect();
 //   .catch(err => console.log(err));
 
 
-app.post("/test", (req, res) => {
-  const { reference, fingerprint, random } = req.body;
-  if (!reference || !fingerprint || random === undefined) {
+app.post("/test", async (req, res) => {
+  const { reference, fingerprint ,random} = req.body;
+  if (!reference || !fingerprint || !random) {
     return res.status(400).json({ status: "error", message: "Missing fields" });
   }
 
-  const payload = { reference, fingerprint, random, status: "yes" };
-  const jsonString = JSON.stringify(payload);
+  try {
+    const keyObj = JSON.parse(reference);
+    const { refDataId, softwareId, ticketId, randomNum, signature } = keyObj;
 
-  const sign = crypto.createSign("SHA256");
-  sign.update(jsonString);
-  sign.end();
-  const signature = sign.sign(privateKey, "base64");
+    const plainString = `${refDataId}.${softwareId}.${ticketId}.${randomNum}`;
 
-  console.log("Client payload:", payload);
-  console.log("Signature:", signature);
+    const verify = crypto.createVerify('SHA256');
+    verify.update(plainString);
+    verify.end();
+    const publicKey=process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
+    const isValid = verify.verify(publicKey, signature, 'base64');
 
-  res.json({
-    status: "success",
-    message: "Request received and signed",
-    payload: jsonString,
-    signature,
-  });
+    if (!isValid) {
+      return res.status(400).json({ status: "error", message: "Invalid reference signature" });
+    }
+
+    // get limit only
+    const { allowedSessions } = await Software
+      .findById(softwareId)
+      .select("allowedSessions")
+      .lean();
+
+    // atomic set + limit enforcement
+    const result = await RefData.updateOne(
+      {
+        _id: refDataId,
+        $or: [
+          { devices: fingerprint }, 
+          { $expr: { $lt: [{ $size: "$devices" },allowedSessions] } } 
+        ]
+      },
+      {
+        $addToSet: { devices:  fingerprint }
+      }
+    );
+
+    // hard fail if limit reached
+    if (result.matchedCount === 0) {
+      return res.status(403).json({
+        status: "error",
+        message: "Device limit reached"
+      });
+    }
+
+    res.json({
+      status: "success",
+      random
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({ status: "error", message: "Invalid format or key error" });
+  }
 });
 
 app.listen(PORT, () => {

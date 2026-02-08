@@ -15,7 +15,8 @@ import MyUploads from './pages/MyUploads.jsx';
 import SoftwareView from "./pages/SoftwareView.jsx";
 import Wishlist from "./pages/Wishlist.jsx";
 import TicketsPage from "./pages/TicketsPage.jsx";
-
+import MyPurchases from "./pages/MyPurchases.jsx";
+import SoftwareControl from "./pages/SoftwareControl.jsx"
 // Wrapper component to conditionally render Header
 function Layout({ children }) {
   const location = useLocation();
@@ -72,6 +73,8 @@ export default function App() {
                 <Route path="/docs" element={<Docs />} />
                 <Route path="/my-uploads" element={<MyUploads/>}/>
                 <Route path="/wishlist" element={<Wishlist/>}/>
+                <Route path="/my-purchases" element={<MyPurchases/>}/>
+                <Route path="/software-control/:id" element={<SoftwareControl />} />
                 <Route path="/explore" element={<Explore/>}/>
                 <Route path="/view/:id" element={<SoftwareView />} />
                 <Route path="/ticket/:id?" element={<TicketsPage />} />
