@@ -2,6 +2,7 @@
 import Software from "../../models/Software.js";
 import { extractYouTubeEmbed } from "../../utils/youtube.js";
 import cloudinary from "../../config/cloudinary.js";
+import RefData from "../../models/RefData.js";
 
 const attachIsCreator = (software, userId) => {
   if (!software) return software;
@@ -255,13 +256,22 @@ export const deleteSoftware = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const software = await Software.findById(id);
+    // Fetch software and check if any RefData exists simultaneously
+    const [software, hasRefData] = await Promise.all([
+      Software.findById(id),
+      RefData.exists({ software: id }),
+    ]);
+
     if (!software) {
       return res.status(404).json({ message: "Software not found" });
     }
 
     if (software.uploadedBy.toString() !== req.user.id) {
       return res.status(403).json({ message: "Not authorized to delete this software" });
+    }
+
+    if (hasRefData) {
+      return res.status(400).json({ message: "Cannot delete software with existing references" });
     }
 
     if (software.publicId) {
