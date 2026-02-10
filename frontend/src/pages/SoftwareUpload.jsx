@@ -1,6 +1,6 @@
 // src/pages/NewSoftwareUpload.jsx
 import React, { useState } from "react";
-import { Upload, FileArchive, Tag, FileText } from "lucide-react";
+import { Upload, FileArchive, Tag, FileText, Fingerprint } from "lucide-react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 
@@ -12,9 +12,11 @@ export default function NewSoftwareUpload() {
     description: "",
     version: "",
     price: "",
-    allowedSessions: 1, // default
+    allowedSessions: 1,
+    softwareOriginId: "",   // 🔐 NEW
     file: null,
   });
+
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -34,15 +36,20 @@ export default function NewSoftwareUpload() {
   };
 
   const validateForm = () => {
-    const { title, description, version, price, allowedSessions, file } = formData;
+    const { title, description, version, price, allowedSessions, file, softwareOriginId } = formData;
 
-    if (!title || !description || !version || !price || !file) {
+    if (!title || !description || !version || !price || !file || !softwareOriginId) {
       toast.error("All fields are required!");
       return false;
     }
 
     if (!/^\d+\.\d+\.\d+$/.test(version)) {
       toast.error("Version must follow x.y.z format (e.g. 1.0.0)");
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9._-]{3,64}$/.test(softwareOriginId)) {
+      toast.error("Software Origin ID must be 3–64 chars (letters, numbers, . _ -)");
       return false;
     }
 
@@ -63,7 +70,6 @@ export default function NewSoftwareUpload() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
     const data = new FormData();
@@ -120,56 +126,51 @@ export default function NewSoftwareUpload() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+
           {/* Title */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
               <FileText className="w-4 h-4" /> Title
             </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 
-                         text-gray-900 dark:text-white dark:bg-gray-800 
-                         focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
+            <input type="text" name="title" value={formData.title} onChange={handleChange} required
+              className="w-full rounded-lg border px-4 py-2 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
           {/* Description */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
               <FileText className="w-4 h-4" /> Description
             </label>
-            <textarea
-              name="description"
-              rows="4"
-              value={formData.description}
+            <textarea name="description" rows="4" value={formData.description} onChange={handleChange} required
+              className="w-full rounded-lg border px-4 py-2 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+          </div>
+
+          {/* Software Origin ID */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
+              <Fingerprint className="w-4 h-4" /> Software Origin ID
+            </label>
+            <input
+              type="text"
+              name="softwareOriginId"
+              placeholder="e.g. mytool-v1-enterprise"
+              value={formData.softwareOriginId}
               onChange={handleChange}
               required
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 
-                         text-gray-900 dark:text-white dark:bg-gray-800 
-                         focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full rounded-lg border px-4 py-2 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Permanent product identity used for license binding (cannot be changed later)
+            </p>
           </div>
 
           {/* Version */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
               <Tag className="w-4 h-4" /> Version
             </label>
-            <input
-              type="text"
-              name="version"
-              placeholder="e.g. 1.0.0"
-              value={formData.version}
-              onChange={handleChange}
-              required
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 
-                         text-gray-900 dark:text-white dark:bg-gray-800 
-                         focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
+            <input type="text" name="version" placeholder="e.g. 1.0.0" value={formData.version} onChange={handleChange} required
+              className="w-full rounded-lg border px-4 py-2 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
           {/* Price */}
@@ -177,79 +178,41 @@ export default function NewSoftwareUpload() {
             <label className="block text-sm font-medium mb-1">Price (INR)</label>
             <div className="flex items-center border rounded-lg px-3 py-2">
               <span className="text-gray-500 mr-1">₹</span>
-              <input
-                type="number"
-                name="price"
-                placeholder="0.00"
-                value={formData.price}
-                onChange={handleChange}
-                className="w-full outline-none"
-              />
+              <input type="number" name="price" value={formData.price} onChange={handleChange} className="w-full outline-none dark:bg-transparent" />
             </div>
           </div>
 
           {/* Allowed Sessions */}
           <div>
             <label className="block text-sm font-medium mb-1">Allowed Sessions</label>
-            <input
-              type="number"
-              name="allowedSessions"
-              min={1}
-              max={10}
-              value={formData.allowedSessions}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-700 px-4 py-2 
-                         text-gray-900 dark:text-white dark:bg-gray-800 
-                         focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            />
+            <input type="number" name="allowedSessions" min={1} max={10} value={formData.allowedSessions} onChange={handleChange}
+              className="w-full rounded-lg border px-4 py-2 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
           </div>
 
           {/* File Upload */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="flex items-center gap-2 text-sm font-medium mb-2">
               <FileArchive className="w-4 h-4" /> Upload .zip File
             </label>
-            <input
-              type="file"
-              name="file"
-              accept=".zip"
-              onChange={handleChange}
-              required
-              className="block w-full text-sm text-gray-500 
-                         file:mr-4 file:py-2 file:px-4
-                         file:rounded-lg file:border-0
-                         file:text-sm file:font-semibold
-                         file:bg-blue-600 file:text-white
-                         hover:file:bg-blue-700
-                         dark:file:bg-blue-500 dark:file:hover:bg-blue-600
-                         cursor-pointer"
-            />
+            <input type="file" name="file" accept=".zip" onChange={handleChange} required
+              className="block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer" />
           </div>
 
-          {/* Progress bar */}
           {uploading && (
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-blue-600 h-3 text-xs text-white text-center font-medium transition-all duration-200"
-                style={{ width: `${progress}%` }}
-              >
+              <div className="bg-blue-600 h-3 text-xs text-white text-center font-medium transition-all duration-200"
+                style={{ width: `${progress}%` }}>
                 {progress}%
               </div>
             </div>
           )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={uploading}
-            className="w-full flex items-center justify-center gap-2 
-                       bg-blue-600 hover:bg-blue-700 
-                       text-white font-semibold py-3 rounded-lg shadow-md 
-                       transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
+          <button type="submit" disabled={uploading}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-md transition disabled:opacity-50">
             <Upload className="w-5 h-5" />
             {uploading ? "Uploading..." : "Upload Software"}
           </button>
+
         </form>
       </div>
     </div>

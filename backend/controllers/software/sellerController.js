@@ -41,11 +41,18 @@ export const uploadSoftware = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded or invalid type" });
     }
 
-    const { title, description, version, price, allowedSessions } = req.body;
+    const {
+      title,
+      description,
+      version,
+      price,
+      allowedSessions,
+      softwareOriginId, // 🔐 NEW
+    } = req.body;
 
-    if (!title || !description) {
+    if (!title || !description || !softwareOriginId) {
       await cleanup(req.file);
-      return res.status(400).json({ message: "Title and description are required" });
+      return res.status(400).json({ message: "Title, description, and softwareOriginId are required" });
     }
 
     if (!/^\d+\.\d+\.\d+$/.test(version)) {
@@ -53,26 +60,48 @@ export const uploadSoftware = async (req, res) => {
       return res.status(400).json({ message: "Invalid version format. Expected x.y.z" });
     }
 
-    const numPrice = Number(price);
-    if (isNaN(numPrice) || numPrice < 0 || numPrice > 10000) {
+    // softwareOriginId validation
+    if (!/^[a-zA-Z0-9._-]{3,64}$/.test(softwareOriginId)) {
       await cleanup(req.file);
-      return res.status(400).json({ message: "Price must be between 0 and 10000" });
+      return res.status(400).json({
+        message: "softwareOriginId must be 3–64 chars (letters, numbers, . _ -)",
+      });
+    }
+
+    const numPrice = Number(price);
+    if (isNaN(numPrice) || numPrice < 1 || numPrice > 10000) {
+      await cleanup(req.file);
+      return res.status(400).json({ message: "Price must be between 1 and 10000" });
     }
 
     // Validate allowedSessions
-    let numSessions = 1; // default if not provided
+    let numSessions = 1;
     if (allowedSessions !== undefined) {
       numSessions = Number(allowedSessions);
-      if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) { // max 10 as example
+      if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) {
         await cleanup(req.file);
         return res.status(400).json({ message: "allowedSessions must be between 1 and 10" });
       }
+    }
+
+    // Uniqueness check per seller
+    const existing = await Software.findOne({
+      uploadedBy: req.user.id,
+      softwareOriginId,
+    });
+
+    if (existing) {
+      await cleanup(req.file);
+      return res.status(409).json({
+        message: "softwareOriginId already exists for your account",
+      });
     }
 
     const software = await Software.create({
       title,
       description,
       version,
+      softwareOriginId, // 🔐 bind product identity
       price: numPrice,
       publicId: req.file.filename,
       size: req.file.size,
@@ -86,10 +115,13 @@ export const uploadSoftware = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    await cleanup(req.file);
+    if (req.file) {
+      await cleanup(req.file);
+    }
     res.status(500).json({ message: err.message });
   }
 };
+
 
 export const updateBasics = async (req, res) => {
   try {

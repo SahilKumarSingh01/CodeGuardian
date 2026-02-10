@@ -69,50 +69,86 @@ connect();
 // })
 //   .catch(err => console.log(err));
 
-
 app.post("/test", async (req, res) => {
-  const { reference, fingerprint ,random} = req.body;
+  const { reference, fingerprint, random } = req.body;
+
   if (!reference || !fingerprint || !random) {
     return res.status(400).json({ status: "error", message: "Missing fields" });
   }
 
   try {
     const keyObj = JSON.parse(reference);
-    const { refDataId, softwareId, ticketId, randomNum, signature } = keyObj;
 
-    const plainString = `${refDataId}.${softwareId}.${ticketId}.${randomNum}`;
+    const {
+      refDataId,
+      softwareId,
+      softwareOriginId, // 🔐 NEW
+      ticketId,
+      randomNum,
+      signature
+    } = keyObj;
 
-    const verify = crypto.createVerify('SHA256');
+    // 🔐 Rebuild signing string (must match approveTicket)
+    const plainString = [
+      refDataId,
+      softwareId,
+      softwareOriginId, // 🔐 product identity
+      ticketId,
+      randomNum
+    ].join(".");
+
+    const verify = crypto.createVerify("SHA256");
     verify.update(plainString);
     verify.end();
-    const publicKey=process.env.PUBLIC_KEY.replace(/\\n/g, '\n');
-    const isValid = verify.verify(publicKey, signature, 'base64');
+
+    const publicKey = process.env.PUBLIC_KEY.replace(/\\n/g, "\n");
+    const isValid = verify.verify(publicKey, signature, "base64");
 
     if (!isValid) {
-      return res.status(400).json({ status: "error", message: "Invalid reference signature" });
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid reference signature"
+      });
     }
 
-    // get limit only
-    const { allowedSessions } = await Software
+    // 🔐 Fetch allowedSessions safely
+    const software = await Software
       .findById(softwareId)
-      .select("allowedSessions")
+      .select("allowedSessions softwareOriginId")
       .lean();
 
-    // atomic set + limit enforcement
+    if (!software) {
+      return res.status(404).json({
+        status: "error",
+        message: "Software not found"
+      });
+    }
+
+    // 🔐 Extra safety: ensure originId consistency
+    if (software.softwareOriginId !== softwareOriginId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Software identity mismatch"
+      });
+    }
+
+    const { allowedSessions } = software;
+
+    // 🔐 Atomic device binding + limit enforcement
     const result = await RefData.updateOne(
       {
         _id: refDataId,
         $or: [
-          { devices: fingerprint }, 
-          { $expr: { $lt: [{ $size: "$devices" },allowedSessions] } } 
+          { devices: fingerprint },
+          { $expr: { $lt: [{ $size: "$devices" }, allowedSessions] } }
         ]
       },
       {
-        $addToSet: { devices:  fingerprint }
+        $addToSet: { devices: fingerprint }
       }
     );
 
-    // hard fail if limit reached
+    // 🚫 Hard fail if limit reached
     if (result.matchedCount === 0) {
       return res.status(403).json({
         status: "error",
@@ -124,11 +160,16 @@ app.post("/test", async (req, res) => {
       status: "success",
       random
     });
+
   } catch (err) {
-    console.log(err);
-    res.status(400).json({ status: "error", message: "Invalid format or key error" });
+    console.error(err);
+    res.status(400).json({
+      status: "error",
+      message: "Invalid format or key error"
+    });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);

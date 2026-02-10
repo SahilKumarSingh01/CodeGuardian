@@ -189,7 +189,6 @@ export const pushImageMessage = async (req, res) => {
   }
 };
 
-
 export const approveTicket = async (req, res) => {
   try {
     const sellerId = req.user.id;
@@ -210,42 +209,51 @@ export const approveTicket = async (req, res) => {
     const software = ticket.software;
     if (!software) return res.status(400).json({ message: "Associated software not found" });
 
-    // 1️ Generate ObjectId server-side
+    // 🔐 Generate RefData
     const refId = new mongoose.Types.ObjectId();
     const randomNum = Math.floor(Math.random() * 1000000);
-    const plainString = `${refId.toString()}.${software._id.toString()}.${ticket._id.toString()}.${randomNum}`;
 
-    const sign = crypto.createSign('SHA256');
+    // 🔐 SIGNING STRING (now includes softwareOriginId)
+    const plainString = [
+      refId.toString(),
+      software._id.toString(),              // internal DB id (traceability)
+      software.softwareOriginId,            // 🔐 product identity anchor
+      ticket._id.toString(),
+      randomNum
+    ].join(".");
+
+    const sign = crypto.createSign("SHA256");
     sign.update(plainString);
     sign.end();
-    const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, '\n');
 
-    const signature = sign.sign(privateKey, 'base64');
+    const privateKey = process.env.PRIVATE_KEY.replace(/\\n/g, "\n");
+    const signature = sign.sign(privateKey, "base64");
 
+    // 🔐 reference.dat object
     const keyObj = {
       refDataId: refId.toString(),
-      softwareId: software._id.toString(),
+      softwareId: software._id.toString(),          // internal
+      softwareOriginId: software.softwareOriginId,  // 🔐 license binding
       ticketId: ticket._id.toString(),
       randomNum,
-      signature 
+      signature,
     };
 
     const key = JSON.stringify(keyObj);
-
 
     await RefData.create({
       _id: refId,
       ticket: ticket._id,
       software: software._id,
-      refKey:key,
-      owner:ticket.buyer.toString(),
+      refKey: key,
+      owner: ticket.buyer.toString(),
     });
 
     const systemChat = {
       sender: null,
       type: "system",
       data: `Seller approved the ticket. Software is ready for use.`,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     const [updatedTicket] = await Promise.all([
@@ -254,23 +262,28 @@ export const approveTicket = async (req, res) => {
         { $push: { chats: systemChat }, status: "closed" },
         { new: true }
       ),
-      pushNotification(ticket.buyer, "ticket_approved", "Seller approved the ticket", ticket._id),
+      pushNotification(
+        ticket.buyer,
+        "ticket_approved",
+        "Seller approved the ticket",
+        ticket._id
+      ),
       (async () => {
         const channel = ably.channels.get(`ticket-${ticketId}`);
         await channel.publish("chat", { type: "chat", chat: systemChat, ticketId });
-      })()
+      })(),
     ]);
 
     res.status(200).json({
       message: "Ticket approved and RefData created",
-      ticket: updatedTicket
+      ticket: updatedTicket,
     });
-
   } catch (err) {
     console.error("Error approving ticket:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
+
 
 
 // Cancel ticket (buyer)

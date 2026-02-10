@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy, Fingerprint } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import EditBox from "./EditBox.jsx";
 import axios from "../api/axios";
@@ -13,7 +13,6 @@ export default function SoftwareHeader({ software, setSoftware }) {
     try {
       setSaving(true);
 
-      // Convert numeric fields
       let payload = { [field]: value };
       if (field === "price" || field === "allowedSessions") {
         payload[field] = Number(value);
@@ -34,6 +33,15 @@ export default function SoftwareHeader({ software, setSoftware }) {
       console.error("Update error:", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const copyOriginId = async () => {
+    try {
+      await navigator.clipboard.writeText(software.softwareOriginId);
+      toast.success("Software Origin ID copied");
+    } catch {
+      toast.error("Failed to copy");
     }
   };
 
@@ -110,6 +118,23 @@ export default function SoftwareHeader({ software, setSoftware }) {
             )}
           </span>
         </div>
+
+        {/* 🔐 Software Origin ID (creator only) */}
+        { software.softwareOriginId && (
+          <div className="mt-6 flex items-center gap-3 bg-white/15 px-4 py-3 rounded-xl">
+            <Fingerprint className="w-5 h-5 text-white/90" />
+            <span className="text-sm font-mono tracking-wide">
+              {software.softwareOriginId}
+            </span>
+            <button
+              onClick={copyOriginId}
+              className="ml-auto flex items-center gap-1 text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition"
+            >
+              <Copy className="w-4 h-4" />
+              Copy
+            </button>
+          </div>
+        )}
 
         {saving && <p className="text-sm mt-2 text-yellow-200">Saving...</p>}
       </div>
