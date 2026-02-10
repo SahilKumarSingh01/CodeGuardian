@@ -118,6 +118,11 @@ export const uploadSoftware = async (req, res) => {
     if (req.file) {
       await cleanup(req.file);
     }
+    if (err.code === 11000 && err.keyPattern?.softwareOriginId) {
+      return res.status(409).json({
+        message: "softwareOriginId already exists globally. Choose a unique product identity."
+      });
+    }
     res.status(500).json({ message: err.message });
   }
 };

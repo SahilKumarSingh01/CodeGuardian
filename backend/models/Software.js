@@ -11,6 +11,7 @@ const softwareSchema = new mongoose.Schema(
     softwareOriginId: {
       type: String,
       required: true,
+      unique:true,
       immutable: true,          // cannot be changed after creation
       index: true
     },
