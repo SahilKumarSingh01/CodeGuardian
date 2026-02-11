@@ -68,52 +68,88 @@ export default function NewSoftwareUpload() {
     return true;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
-    });
+    try {
+      setUploading(true);
+      setProgress(0);
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${import.meta.env.VITE_SERVER_URL}/software/seller/upload`, true);
-    xhr.withCredentials = true;
+      const { file, ...meta } = formData;
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setProgress(percent);
+      // 1️⃣ Ask backend for signed upload + DB entry
+      const res = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/software/seller/upload`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            ...meta,
+            fileSize: file.size,
+            fileName: file.name
+          })
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Upload authorization failed");
+        setUploading(false);
+        return;
       }
-    };
 
-    xhr.onload = () => {
-      setUploading(false);
+      // 2️⃣ Direct upload to Cloudinary
+      const form = new FormData();
+      form.append("file", file);
+      form.append("api_key", import.meta.env.VITE_CLOUDINARY_API_KEY);
+      Object.entries(data.upload).forEach(([key, value]) => {
+        form.append(key, value);
+      });
 
-      try {
-        const res = JSON.parse(xhr.responseText);
 
-        if (xhr.status === 200 || xhr.status === 201) {
-          toast.success(res.message || "Software uploaded successfully!");
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        "POST",
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/raw/upload`,
+        true
+      );
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        setUploading(false);
+
+        if (xhr.status === 200) {
+          toast.success("Software uploaded successfully!");
           navigate("/my-uploads");
         } else {
-          toast.error(res.message || `Upload failed. Status: ${xhr.status}`);
+          toast.error("Cloud upload failed");
         }
-      } catch (err) {
-        toast.error(`Upload failed. Status: ${xhr.status}`);
-      }
-    };
+      };
 
-    xhr.onerror = () => {
+      xhr.onerror = () => {
+        setUploading(false);
+        toast.error("Upload failed");
+      };
+
+      xhr.send(form);
+
+    } catch (err) {
+      console.error(err);
+      console.log(err);
       setUploading(false);
-      toast.error("An error occurred during upload.");
-    };
-
-    setUploading(true);
-    setProgress(0);
-    xhr.send(data);
+      toast.error("Upload failed");
+    }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-10">

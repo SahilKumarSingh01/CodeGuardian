@@ -36,34 +36,30 @@ const cleanup = async (file) => {
     console.error("Cleanup failed:", destroyErr);
   }
 };
+
+
 export const uploadSoftware = async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded or invalid type" });
-    }
-
     const {
       title,
       description,
       version,
       price,
       allowedSessions,
-      softwareOriginId, // 🔐 NEW
+      softwareOriginId,
+      fileSize,      // 👈 from frontend
+      fileName,      // 👈 from frontend
     } = req.body;
 
-    if (!title || !description || !softwareOriginId) {
-      await cleanup(req.file);
-      return res.status(400).json({ message: "Title, description, and softwareOriginId are required" });
+    if (!title || !description || !softwareOriginId || !fileSize || !fileName) {
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
     if (!/^\d+\.\d+\.\d+$/.test(version)) {
-      await cleanup(req.file);
       return res.status(400).json({ message: "Invalid version format. Expected x.y.z" });
     }
 
-    // softwareOriginId validation
     if (!/^[a-zA-Z0-9._-]{3,64}$/.test(softwareOriginId)) {
-      await cleanup(req.file);
       return res.status(400).json({
         message: "softwareOriginId must be 3–64 chars (letters, numbers, . _ -)",
       });
@@ -71,54 +67,73 @@ export const uploadSoftware = async (req, res) => {
 
     const numPrice = Number(price);
     if (isNaN(numPrice) || numPrice < 1 || numPrice > 10000) {
-      await cleanup(req.file);
       return res.status(400).json({ message: "Price must be between 1 and 10000" });
     }
 
-    // Validate allowedSessions
     let numSessions = 1;
     if (allowedSessions !== undefined) {
       numSessions = Number(allowedSessions);
       if (isNaN(numSessions) || numSessions < 1 || numSessions > 10) {
-        await cleanup(req.file);
         return res.status(400).json({ message: "allowedSessions must be between 1 and 10" });
       }
     }
 
-    // Uniqueness check per seller
     const existing = await Software.findOne({
       uploadedBy: req.user.id,
       softwareOriginId,
     });
 
     if (existing) {
-      await cleanup(req.file);
       return res.status(409).json({
         message: "softwareOriginId already exists for your account",
       });
     }
 
+    // create DB entry first (pending upload)
     const software = await Software.create({
       title,
       description,
       version,
-      softwareOriginId, // 🔐 bind product identity
+      softwareOriginId,
       price: numPrice,
-      publicId: req.file.filename,
-      size: req.file.size,
+      publicId:`software/${softwareOriginId}.zip`,
+      size: fileSize,
       uploadedBy: req.user.id,
       allowedSessions: numSessions,
     });
 
+    const publicId = `${softwareOriginId}`;
+
+    // 🔐 signed upload params
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const paramsToSign = {
+      timestamp,
+      public_id: publicId,
+      folder: "software",
+      type: "authenticated",     
+    };
+
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      process.env.CLOUDINARY_API_SECRET
+    );
+
     res.status(201).json({
-      message: "Software uploaded successfully",
+      message: "Upload authorized",
+      upload: {
+        timestamp,
+        public_id: publicId,
+        folder: "software",
+        resource_type: "raw",
+        type: "authenticated",
+        signature
+      },
       software: attachIsCreator(software, req.user.id),
     });
+
   } catch (err) {
     console.error(err);
-    if (req.file) {
-      await cleanup(req.file);
-    }
     if (err.code === 11000 && err.keyPattern?.softwareOriginId) {
       return res.status(409).json({
         message: "softwareOriginId already exists globally. Choose a unique product identity."
@@ -127,7 +142,6 @@ export const uploadSoftware = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 
 export const updateBasics = async (req, res) => {
   try {
@@ -293,51 +307,55 @@ export const deleteSoftware = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
-
 export const updateZip = async (req, res) => {
   try {
     const { id } = req.params;
-    if (!req.file) {
-      return res.status(400).json({ message: "No file uploaded or invalid type" });
+    const { fileSize, fileName } = req.body;
+
+    if (!fileSize || !fileName) {
+      return res.status(400).json({ message: "fileSize and fileName are required" });
     }
 
-    const oldSoftware = await Software.findOneAndUpdate(
-      { _id: id, uploadedBy: req.user.id },
-      {
-        $set: {
-          publicId: req.file.filename,
-          size: req.file.size,
-          updatedAt: new Date(),
-        },
-      },
-      { new: false }
-    );
+    const software = await Software.findOne({
+      _id: id,
+      uploadedBy: req.user.id
+    });
 
-    if (!oldSoftware) {
+    if (!software) {
       return res.status(404).json({ message: "Software not found or not authorized" });
     }
 
-    if (oldSoftware.publicId) {
-      try {
-        await cloudinary.uploader.destroy(oldSoftware.publicId, {
-          resource_type: "raw",
-          type: "authenticated",
-          invalidate: true,
-        });
-      } catch (cloudErr) {
-        console.error("Failed to delete old file from Cloudinary:", cloudErr);
-      }
-    }
+    // reuse same publicId → Cloudinary auto-replaces old file
+    const publicId = software.softwareOriginId; // ensure no .zip
 
-    const updatedSoftware = await Software.findById(id).populate(
-      "uploadedBy",
-      "displayName photoUrl"
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const paramsToSign = {
+      timestamp,
+      public_id: publicId,
+      folder: "software",
+      type: "authenticated",
+      overwrite: true, // optional for form only
+    };
+
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      process.env.CLOUDINARY_API_SECRET
     );
 
     res.status(200).json({
-      message: "Software zip updated successfully",
-      software: attachIsCreator(updatedSoftware, req.user.id),
+      message: "Update upload authorized",
+      upload: {
+        timestamp,
+        public_id: publicId,
+        folder: "software",
+        resource_type: "raw",
+        type: "authenticated",
+        overwrite: true, // optional for form only
+        signature
+      }
     });
+
   } catch (err) {
     console.error("Update zip failed:", err);
     res.status(500).json({ message: err.message });

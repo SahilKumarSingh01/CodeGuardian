@@ -10,52 +10,80 @@ export default function UploaderOverlay({ open, onClose, softwareId, onSuccess }
 
   if (!open) return null;
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return toast.warn("Please select a file first!");
     setLoading(true);
     setProgress(0);
 
-    const data = new FormData();
-    data.append("file", file);
+    try {
+      // 1) Get signed params from backend
+      const signRes = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/software/seller/${softwareId}/zip`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            fileSize: file.size,
+            fileName: file.name,
+          }),
+        }
+      );
 
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", `${import.meta.env.VITE_SERVER_URL}/software/seller/${softwareId}/zip`, true);
-    xhr.withCredentials = true;
+      const data = await signRes.json();
+      if (!signRes.ok) throw new Error(data.message || "Failed to get upload signature");
 
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const percent = Math.round((event.loaded / event.total) * 100);
-        setProgress(percent);
-      }
-    };
+      // 2) Upload to Cloudinary (replace old zip)
+      const form = new FormData();
+      form.append("file", file);
+      form.append("api_key", import.meta.env.VITE_CLOUDINARY_API_KEY);
+      Object.entries(data.upload).forEach(([key, value]) => {
+        form.append(key, value);
+      });
 
-    xhr.onload = () => {
-      setLoading(false);
-      setProgress(0);
+      const xhr = new XMLHttpRequest();
+      xhr.open(
+        "POST",
+        `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME}/raw/upload`,
+        true
+      );
 
-      try {
-        const res = JSON.parse(xhr.responseText);
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          setProgress(percent);
+        }
+      };
 
-        if (xhr.status === 200 || xhr.status === 201) {
-          toast.success(res.message || "ZIP updated successfully!");
+      xhr.onload = async () => {
+        try {
+          const cloudRes = JSON.parse(xhr.responseText);
+          if (xhr.status !== 200) throw new Error(cloudRes.error?.message || "Cloud upload failed");
+          toast.success("ZIP updated successfully!");
           onSuccess?.();
           onClose();
-        } else {
-          toast.error(res.message || `Upload failed. Status: ${xhr.status}`);
+        } catch (err) {
+          toast.error(err.message);
+        } finally {
+          setLoading(false);
+          setProgress(0);
         }
-      } catch {
-        toast.error(`Upload failed. Status: ${xhr.status}`);
-      }
-    };
+      };
 
-    xhr.onerror = () => {
+      xhr.onerror = () => {
+        setLoading(false);
+        setProgress(0);
+        toast.error("Cloud upload failed.");
+      };
+
+      xhr.send(form);
+    } catch (err) {
       setLoading(false);
       setProgress(0);
-      toast.error("An error occurred during upload.");
-    };
-
-    xhr.send(data);
+      toast.error(err.message);
+    }
   };
+
 
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">

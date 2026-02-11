@@ -7,8 +7,8 @@ import { isAuthenticated } from "../../middlewares/isAuthenticated.js";
 const router = express.Router();
 
 // POST /api/software/seller/upload
-router.post("/upload", isAuthenticated, upload.single("file"), sellerController.uploadSoftware);
-router.put("/:id/zip", isAuthenticated, upload.single("file"), sellerController.updateZip);
+router.post("/upload", isAuthenticated, sellerController.uploadSoftware);
+router.put("/:id/zip", isAuthenticated, sellerController.updateZip);
 
 // GET /api/software/seller/my
 router.get("/my-uploads", isAuthenticated, sellerController.getMyUploads);
